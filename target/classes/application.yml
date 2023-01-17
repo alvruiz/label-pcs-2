@@ -1,0 +1,20 @@
+server:
+  port: 8082
+  http2:
+    enabled: true
+
+spring:
+  mvc:
+    pathmatch:
+      matching-strategy: ANT_PATH_MATCHER
+  config:
+    activate:
+      on-profile: default
+  data:
+    mongodb:
+      user: root
+      password: root
+      uri: mongodb://${document-db:localhost}:27017/document-db
+  application:
+    name: label-pcs
+

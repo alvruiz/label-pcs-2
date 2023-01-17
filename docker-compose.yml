@@ -1,0 +1,16 @@
+version: "3.8"
+services:
+  document-db:
+    container_name: document-db
+    image: mongo:4.4.3
+    ports:
+      - "27017:27017"
+    volumes:
+      - documentdata:/data/db
+    environment:
+      - MONGO_INITDB_USERNAME=root
+      - MONGO_INITDB_PASSWORD=root
+      - MONGO_INITDB_DATABASE=document-db
+
+volumes:
+  documentdata:
