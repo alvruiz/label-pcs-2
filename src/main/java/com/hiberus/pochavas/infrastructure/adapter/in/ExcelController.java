@@ -23,34 +23,8 @@ public interface ExcelController {
     ResponseEntity<String> processExcel(@RequestParam("file") String file);
 
 
-    @ApiOperation(value="Permite añadir tags a BD para un schema de un excel")
-    @ApiResponses({
-            @ApiResponse(code = 200, message = "Creado tag con exito"),
-            @ApiResponse(code = 400, message = "Ha habido un error"),
-    })
-    @CrossOrigin(origins = "http://localhost:4200", methods= {RequestMethod.POST})
-    @PostMapping(value="/tag")
-    ResponseEntity<String> createTag(@RequestBody TagSchemaDTO tag);
 
-    @ApiOperation(value="Permite añadir tags en array a BD para un schema de un excel")
-    @ApiResponses({
-            @ApiResponse(code = 200, message = "Creado array tag con exito"),
-            @ApiResponse(code = 400, message = "Ha habido un error"),
-    })
-    @CrossOrigin(origins = "http://localhost:4200", methods= {RequestMethod.POST})
-    @PostMapping(value="/tag/array")
-    ResponseEntity<String> createTagArray(@RequestBody ArrayTagSchemaDTO tag);
 
-    @ApiOperation(value="Permite eliminar tags de BD para un schema de un excel")
-    @ApiResponses({
-            @ApiResponse(code = 200, message = "Eliminado tag con exito"),
-            @ApiResponse(code = 400, message = "Ha habido un error"),
-            @ApiResponse(code = 404, message = "No existe el tag a elimianr"),
-
-    })
-    @CrossOrigin(origins = "http://localhost:4200", methods= {RequestMethod.DELETE})
-    @DeleteMapping(value="/tag")
-    ResponseEntity<String> deleteTag(@RequestBody TagSchemaDTO tag);
 
     @ApiOperation(value="Permite obtener tags de BD para un schema de un excel")
     @ApiResponses({

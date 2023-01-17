@@ -37,44 +37,8 @@ public class ExcelControllerImpl implements ExcelController{
 
     }
 
-    @Override
-    public ResponseEntity<String> createTag(TagSchemaDTO tag) {
-        try{
-            TagSchema tagSchema = new TagSchema(tag.getSchema(),tag.getTag(),tag.getStandarizedTag());
-            documentStorageServiceUseCase.createTag(tagSchema);
-        }catch (Exception e){
-            return new ResponseEntity<>("Error creating",HttpStatus.BAD_REQUEST);
-        }
-        return new ResponseEntity<>("Created",HttpStatus.OK);
-    }
 
-    @Override
-    public ResponseEntity<String> createTagArray(ArrayTagSchemaDTO tags) {
-        try{
-            for(TagSchemaDTO t: tags.getTags()){
-                createTag(t);
-            }
-        }catch (Exception e){
-            return new ResponseEntity<>("Error creating",HttpStatus.BAD_REQUEST);
-        }
-        return new ResponseEntity<>("Created array",HttpStatus.OK);
-    }
 
-    @Override
-    public ResponseEntity<String> deleteTag(TagSchemaDTO tag) {
-        try{
-            Boolean exists = checkTagExists(tag);
-            if(!exists){
-                return new ResponseEntity<>("Doesnt exist",HttpStatus.NOT_FOUND);
-            }
-            TagSchema tagSchema = new TagSchema(tag.getSchema(),tag.getTag(),tag.getStandarizedTag());
-            documentStorageServiceUseCase.deleteTag(tagSchema);
-
-        }catch (Exception e){
-            return new ResponseEntity<>("Error deleting",HttpStatus.BAD_REQUEST);
-        }
-        return new ResponseEntity<>("Deleted",HttpStatus.OK);
-    }
 
     private Boolean checkTagExists(TagSchemaDTO tag) {
         List<TagSchema> list = documentStorageServiceUseCase.getTagsFromSchema(tag.getSchema());

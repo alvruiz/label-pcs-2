@@ -1,6 +1,7 @@
 package com.hiberus.pochavas.application.services;
 
 import com.hiberus.pochavas.domain.models.ExcelTable;
+import com.hiberus.pochavas.domain.models.ProcessTag;
 import com.hiberus.pochavas.domain.models.SheetsTables;
 import com.hiberus.pochavas.domain.models.TagSchema;
 import com.hiberus.pochavas.domain.ports.in.DocumentStorageServiceUseCase;
@@ -16,6 +17,7 @@ import org.springframework.web.client.RestTemplate;
 import javax.xml.bind.SchemaOutputResolver;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -50,45 +52,8 @@ public class DocumentStorageService implements DocumentStorageServiceUseCase {
         }
     }
 
-    @Override
-    public ArrayList<SheetsTables> processTables(InputStream file, String fileName) {
-        try{
-            ArrayList<SheetsTables> sheetsTables = new ArrayList<>();
-            Workbook workbook = new XSSFWorkbook(file);
-            //Los tags se obtienen a partir del nombre del fichero
-            List<TagSchema> tags = getTagsFromSchema(fileName.split(XLSX)[0]);
-            
-            for(int i = 0; i<workbook.getNumberOfSheets();i++){
-                String sheetName = workbook.getSheetName(i);
-                System.out.println(sheetName+"--------------------");
-                ArrayList<ArrayList<ExcelTable>> list = processSheet(workbook.getSheetAt(i),fileName,tags);
-                sheetsTables.add(new SheetsTables(sheetName,list));
-            }
-            return sheetsTables;
 
-        }catch (Exception e){
-            return null;
-        }
 
-    }
-
-    @Override
-    public void createTag(TagSchema tagSchema) {
-        try{
-            filePersistPort.createTag(tagSchema);
-        }catch (Exception e){
-            throw new IllegalStateException("Error");
-        }
-    }
-
-    @Override
-    public void deleteTag(TagSchema tagSchema) {
-        try{
-            filePersistPort.deleteTag(tagSchema);
-        }catch (Exception e){
-            throw new IllegalStateException(e.getMessage());
-        }
-    }
 
     @Override
     public List<TagSchema> getTagsFromSchema(String schema) {
@@ -108,11 +73,46 @@ public class DocumentStorageService implements DocumentStorageServiceUseCase {
         }
     }
 
-    private ArrayList<ArrayList<ExcelTable>> processSheet(Sheet sheet,String fileName,List<TagSchema> tags) {
+    @Override
+    public ArrayList<SheetsTables> processTables(InputStream file, String fileName) {
+        try{
+            ArrayList<SheetsTables> sheetsTables = new ArrayList<>();
+            Workbook workbook = new XSSFWorkbook(file);
+            //Los tags se obtienen a partir del nombre del fichero
+            //List<TagSchema> tags = getTagsFromSchema(fileName.split(XLSX)[0]);
+
+            List<Name> tags = (List<Name>) workbook.getAllNames();
+            ArrayList<ProcessTag> processTags = new ArrayList<>();
+            for(Name tag : tags) {
+                String tagName = tag.getNameName();
+               String[] tagString = tag.getRefersToFormula().split(",");
+                ArrayList<String> coordinates = new ArrayList<>();
+               for(String s : tagString){
+                  String coord = s.split("!")[1];
+                  coordinates.add(coord);
+               }
+                ProcessTag processTag = new ProcessTag(tagName,coordinates, tag.getRefersToFormula().split("!")[0].replace("'",""));
+                processTags.add(processTag);
+            }
+
+            for(int i = 0; i<workbook.getNumberOfSheets();i++){
+                String sheetName = workbook.getSheetName(i);
+                ArrayList<ArrayList<ExcelTable>> list = processSheet(workbook.getSheetAt(i),fileName,processTags);
+                sheetsTables.add(new SheetsTables(sheetName,list));
+            }
+
+
+            return sheetsTables;
+
+        }catch (Exception e){
+            return null;
+        }
+
+    }
+    private ArrayList<ArrayList<ExcelTable>> processSheet(Sheet sheet,String fileName,ArrayList<ProcessTag> tags) {
         boolean isHeaderRange = false;
         //Tablas en una sheet, cada cabecera puede tener varias tablas
         ArrayList<ArrayList<ExcelTable>> tablesSheet = new ArrayList<>();
-
         try {
             Iterator<Row> row = sheet.rowIterator();
             while (row.hasNext()) {
@@ -142,11 +142,9 @@ public class DocumentStorageService implements DocumentStorageServiceUseCase {
                         }
                         headers = new ArrayList<>();
                         //Una cabecera puede tener varias tablas
-
                         ArrayList<ExcelTable> table = processTableFromSheet(sheet,cellStart,cell,fileName,copyHeaders,tags);
                         tablesSheet.add(table);
                         cellStart = null;
-
                     }
 
                 }
@@ -160,7 +158,7 @@ public class DocumentStorageService implements DocumentStorageServiceUseCase {
 
     }
 
-    private ArrayList<ExcelTable> processTableFromSheet(Sheet sheet, Cell headerStart, Cell headerEnd,String fileName,ArrayList<String> copyHeaders,List<TagSchema> tags) {
+    private ArrayList<ExcelTable> processTableFromSheet(Sheet sheet, Cell headerStart, Cell headerEnd,String fileName,ArrayList<String> copyHeaders,ArrayList<ProcessTag> tags) {
 
         int columnStart = headerStart.getColumnIndex();
         int columnEnd = headerEnd.getColumnIndex();
@@ -174,7 +172,6 @@ public class DocumentStorageService implements DocumentStorageServiceUseCase {
             for(int i = headerStart.getRowIndex()+1; i<=sheet.getLastRowNum();i++){
                 Cell checkStartCell = sheet.getRow(i).getCell(columnStart);
                 Cell checkEndCell = sheet.getRow(i).getCell(columnEnd);
-
                 if(checkStartCell!=null || checkEndCell!= null){
                     //Si detecta otro inicio de cabecera termina
                     if (switchCellType(checkStartCell).equalsIgnoreCase(HEADER_START)) {
@@ -183,7 +180,6 @@ public class DocumentStorageService implements DocumentStorageServiceUseCase {
 
                     //Detecta comienzo de tabla
                     if(switchCellType(checkStartCell).equalsIgnoreCase(TABLE_START)){
-                        System.out.println("AAAA");
                         tableStart = checkStartCell;
                         table = new ExcelTable(fileName,sheet.getSheetName(),copyHeaders);
                         table.setLimitsStart(tableStart.getAddress().toString());
@@ -207,22 +203,24 @@ public class DocumentStorageService implements DocumentStorageServiceUseCase {
         }
     }
 
-    private void getValuesFromTable(Sheet sheet, Cell headerStart, ExcelTable table, Cell tableStart, Cell tableEnd,List<TagSchema> tags) {
+    private void getValuesFromTable(Sheet sheet, Cell headerStart, ExcelTable table, Cell tableStart, Cell tableEnd,ArrayList<ProcessTag> tags) {
 
         for(int i = tableStart.getRowIndex(); i<= tableEnd.getRowIndex(); i++){
             for(int j = tableStart.getColumnIndex()+1; j< tableEnd.getColumnIndex(); j++){
-                String header = switchCellType(sheet.getRow(headerStart.getRow().getRowNum()).getCell(j));
+
+               /* String header = switchCellType(sheet.getRow(headerStart.getRow().getRowNum()).getCell(j));
                 //Si es 1 quiere decir que el header hay que procesarlo
                 long isProcesable = tags.stream().filter(x -> x.getTag().equals(header)).count();
-
                 if(isProcesable > 0){
                     String standarizedTag = tags.stream().filter(x -> x.getTag().equals(header)).collect(ArrayList<TagSchema>::new,ArrayList::add,ArrayList::addAll).get(0).getStandarizedTag();
                     System.out.println(switchCellType(sheet.getRow(i).getCell(j)));
                     table.addField(i+1,standarizedTag,switchCellType(sheet.getRow(i).getCell(j)));
                 }
-
-
-
+            */
+                String isProcessable = Processor.isProcessable(i, j, tags, sheet.getSheetName());
+                if(isProcessable!=null){
+                    table.addField(i+1,isProcessable,switchCellType(sheet.getRow(i).getCell(j)));
+                }
             }
         }
     }

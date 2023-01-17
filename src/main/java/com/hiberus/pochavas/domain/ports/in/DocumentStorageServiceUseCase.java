@@ -15,9 +15,6 @@ public interface DocumentStorageServiceUseCase {
 
     ArrayList<SheetsTables> processTables(InputStream file, String fileName);
 
-    void createTag(TagSchema tagSchema);
-
-    void deleteTag(TagSchema tagSchema);
 
     List<TagSchema> getTagsFromSchema(String schema);
 
