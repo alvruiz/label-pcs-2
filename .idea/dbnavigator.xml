@@ -11,6 +11,9 @@
   <component name="DBNavigator.Project.DatabaseFileManager">
     <open-files />
   </component>
+  <component name="DBNavigator.Project.EditorStateManager">
+    <last-used-providers />
+  </component>
   <component name="DBNavigator.Project.Settings">
     <connections />
     <browser-settings>

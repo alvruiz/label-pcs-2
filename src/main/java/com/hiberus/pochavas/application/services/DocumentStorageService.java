@@ -19,6 +19,7 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 
@@ -85,7 +86,7 @@ public class DocumentStorageService implements DocumentStorageServiceUseCase {
             ArrayList<ProcessTag> processTags = new ArrayList<>();
             for(Name tag : tags) {
                 String tagName = tag.getNameName();
-               String[] tagString = tag.getRefersToFormula().split(",");
+                String[] tagString = tag.getRefersToFormula().split(",");
                 ArrayList<String> coordinates = new ArrayList<>();
                for(String s : tagString){
                   String coord = s.split("!")[1];
@@ -116,7 +117,7 @@ public class DocumentStorageService implements DocumentStorageServiceUseCase {
         try {
             Iterator<Row> row = sheet.rowIterator();
             while (row.hasNext()) {
-                ArrayList<String> headers = new ArrayList<>();
+                HashMap<Integer,String> headers = new HashMap<>();
                 Row filas;
                 filas = row.next();
                 Iterator<Cell> cellIterator1 = filas.cellIterator();
@@ -124,7 +125,7 @@ public class DocumentStorageService implements DocumentStorageServiceUseCase {
                 while (cellIterator1.hasNext() ) {
                     Cell cell = cellIterator1.next();
                     if(isHeaderRange && !switchCellType(cell).equalsIgnoreCase("he")){
-                        headers.add(switchCellType(cell));
+                        headers.put(cell.getColumnIndex(),switchCellType(cell));
                     }
 
                     if (cell.getCellType() == CellType.STRING && (cell.getStringCellValue().equalsIgnoreCase(HEADER_START))) {
@@ -135,14 +136,16 @@ public class DocumentStorageService implements DocumentStorageServiceUseCase {
                     if (cell.getCellType() == CellType.STRING && (cell.getStringCellValue().equalsIgnoreCase(HEADER_END))) {
 
                         isHeaderRange = false;
-                        ArrayList<String> copyHeaders = new ArrayList<>();
-                        //TODO REVISAR ESTA PARTE
-                        for(String s: headers){
-                            copyHeaders.add(s);
-                        }
-                        headers = new ArrayList<>();
+                        HashMap<Integer,String> copyHeaders = new HashMap<>();
+                        headers.forEach((k,v) -> copyHeaders.put(k,v));
+                        headers = new HashMap<>();
                         //Una cabecera puede tener varias tablas
                         ArrayList<ExcelTable> table = processTableFromSheet(sheet,cellStart,cell,fileName,copyHeaders,tags);
+                        for(ProcessTag t: tags){
+                            int col = t.getCoordinates().get(0).charAt(1) -'A';
+                            headers.get(col);
+                            filePersistPort.createTag(new TagSchema(fileName.split(XLSX)[0],copyHeaders.get(col),t.getName()));
+                        }
                         tablesSheet.add(table);
                         cellStart = null;
                     }
@@ -158,7 +161,7 @@ public class DocumentStorageService implements DocumentStorageServiceUseCase {
 
     }
 
-    private ArrayList<ExcelTable> processTableFromSheet(Sheet sheet, Cell headerStart, Cell headerEnd,String fileName,ArrayList<String> copyHeaders,ArrayList<ProcessTag> tags) {
+    private ArrayList<ExcelTable> processTableFromSheet(Sheet sheet, Cell headerStart, Cell headerEnd,String fileName,HashMap<Integer,String> copyHeaders,ArrayList<ProcessTag> tags) {
 
         int columnStart = headerStart.getColumnIndex();
         int columnEnd = headerEnd.getColumnIndex();
@@ -188,7 +191,7 @@ public class DocumentStorageService implements DocumentStorageServiceUseCase {
                     if(switchCellType(checkEndCell).equalsIgnoreCase(TABLE_END)){
                         tableEnd = checkEndCell;
                         //Recorremos el contenido de la tabla
-                        getValuesFromTable(sheet, headerStart, table, tableStart, tableEnd,tags);
+                        getValuesFromTable(sheet, table, tableStart, tableEnd,tags,copyHeaders);
                         table.setLimitsEnd(tableEnd.getAddress().toString());
                         //Almacenar tabla en BD
                         filePersistPort.saveTable(table);
@@ -203,7 +206,7 @@ public class DocumentStorageService implements DocumentStorageServiceUseCase {
         }
     }
 
-    private void getValuesFromTable(Sheet sheet, Cell headerStart, ExcelTable table, Cell tableStart, Cell tableEnd,ArrayList<ProcessTag> tags) {
+    private void getValuesFromTable(Sheet sheet,ExcelTable table, Cell tableStart, Cell tableEnd,ArrayList<ProcessTag> tags,HashMap<Integer,String> headers) {
 
         for(int i = tableStart.getRowIndex(); i<= tableEnd.getRowIndex(); i++){
             for(int j = tableStart.getColumnIndex()+1; j< tableEnd.getColumnIndex(); j++){
@@ -217,7 +220,7 @@ public class DocumentStorageService implements DocumentStorageServiceUseCase {
                     table.addField(i+1,standarizedTag,switchCellType(sheet.getRow(i).getCell(j)));
                 }
             */
-                String isProcessable = Processor.isProcessable(i, j, tags, sheet.getSheetName());
+                String isProcessable = Processor.isProcessable(i, j, tags, sheet.getSheetName(),headers);
                 if(isProcessable!=null){
                     table.addField(i+1,isProcessable,switchCellType(sheet.getRow(i).getCell(j)));
                 }

@@ -18,7 +18,7 @@ public class ExcelTable {
     private ArrayList<RowExcel> table;
 
 
-    public ExcelTable(String fileId,String sheetName,ArrayList<String> headers){
+    public ExcelTable(String fileId,String sheetName,HashMap<Integer,String> headers){
         this.fileId = fileId;
         this.sheetName = sheetName;
         this.rangeStart = "";
